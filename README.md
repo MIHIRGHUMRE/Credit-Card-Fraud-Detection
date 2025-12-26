@@ -38,3 +38,9 @@ This project analyzes a dataset of European credit card transactions to build a 
 3.  **Training**: Train Logistic Regression on balanced data.
 4.  **Evaluation**: Check Accuracy, Precision, and Recall.
 5.  **Deployment**: Serialize model and load into Streamlit.
+
+---
+
+## 🌐 Live Demo
+You can access the live version of the application here:  
+👉 **https://credit-card-fraud-detection-eetartth4dadh6ojkw4owx.streamlit.app/** 

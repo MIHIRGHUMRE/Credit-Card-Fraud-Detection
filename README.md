@@ -1,4 +1,4 @@
-# 🛡️Credit Card Fraud Detection
+# 🛡️FraudGuard: Credit Card Fraud Detection
 
 A Machine Learning application deployed on Streamlit that detects fraudulent credit card transactions.
 

@@ -1,142 +1,168 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
+import numpy as np
 import pickle
 
-# Load the trained model
-@st.cache_resource
-def load_model():
-    with open('fraud_model.pkl', 'rb') as f:
-        model = pickle.load(f)
-    return model
+# --- PAGE CONFIGURATION ---
+st.set_page_config(
+    page_title="FraudGuard AI", 
+    page_icon="🛡️", 
+    layout="wide"
+)
 
-model = load_model()
-
-# Page Configuration
-st.set_page_config(page_title="FraudGuard AI", page_icon="🛡️", layout="wide")
-
-# Custom CSS for UI Styling
+# --- CUSTOM CSS FOR PROFESSIONAL UI ---
 st.markdown("""
     <style>
     .main {
-        background-color: #f5f5f5;
+        background-color: #f8f9fa;
     }
     .stButton>button {
         width: 100%;
         background-color: #007BFF;
         color: white;
+        height: 3em;
+        font-weight: bold;
     }
-    .fraud {
+    .fraud-text {
         color: #d9534f;
         font-weight: bold;
-        font-size: 24px;
+        font-size: 20px;
     }
-    .legit {
-        color: #5cb85c;
+    .legit-text {
+        color: #28a745;
         font-weight: bold;
-        font-size: 24px;
+        font-size: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# App Header
-st.title("🛡️ FraudGuard: Credit Card Fraud Detection System")
-st.markdown("Use Machine Learning to detect fraudulent credit card transactions based on anonymized transaction features.")
+# --- MODEL LOADING ---
+@st.cache_resource
+def load_model():
+    try:
+        # Ensure fraud_model.pkl exists in the same directory
+        with open('fraud_model.pkl', 'rb') as f:
+            model = pickle.load(f)
+        return model
+    except FileNotFoundError:
+        st.error("❌ Model file 'fraud_model.pkl' not found. Please run your notebook to generate it.")
+        return None
 
-# Sidebar for Input Options
-st.sidebar.header("Input Options")
-input_method = st.sidebar.radio("Choose input method:", ["Use Example Data", "Upload CSV File", "Manual Entry (Advanced)"])
+model = load_model()
 
-# Feature names (V1-V28 + Time + Amount)
+# --- APP HEADER ---
+st.title("🛡️ FraudGuard: Credit Card Fraud Detection")
+st.markdown("Developed with Machine Learning to identify suspicious financial transactions.")
+st.write("---")
+
+# --- SIDEBAR INPUT ---
+st.sidebar.header("Navigation & Input")
+input_method = st.sidebar.radio(
+    "Choose Input Method:", 
+    ["Example Scenarios", "Batch Upload (CSV)", "Manual Entry"]
+)
+
+# Feature list for reference
 feature_cols = ['Time'] + [f'V{i}' for i in range(1, 29)] + ['Amount']
+input_df = None
 
-input_data = None
-
-# --- METHOD 1: EXAMPLE DATA ---
-if input_method == "Use Example Data":
-    st.subheader("Select a Test Case")
-    st.info("Since the dataset uses PCA features (V1-V28), manual entry is difficult. Use these pre-loaded examples to test the model.")
+# --- INPUT LOGIC ---
+if input_method == "Example Scenarios":
+    st.subheader("Quick Test Scenarios")
+    scenario = st.selectbox(
+        "Select a transaction type to simulate:",
+        ["Standard Legitimate Transaction", "High-Risk Fraudulent Transaction"]
+    )
     
-    # Pre-defined examples (taken from dataset averages/samples)
-    example_type = st.radio("Choose transaction type:", ["Legitimate Transaction", "Fraudulent Transaction"])
-    
-    if example_type == "Legitimate Transaction":
-        # A sample legit row from the dataset
-        input_data = np.array([0.0, -1.359807, -0.072781, 2.536347, 1.378155, -0.338321, 0.462388, 0.239599, 
-                               0.098698, 0.363787, 0.090794, -0.551600, -0.617801, -0.991390, -0.311169, 
-                               1.468177, -0.470401, 0.207971, 0.025791, 0.403993, 0.251412, -0.018307, 
-                               0.277838, -0.110474, 0.066928, 0.128539, -0.189115, 0.133558, -0.021053, 149.62])
+    if scenario == "Standard Legitimate Transaction":
+        # Data sample for a legit transaction
+        data = np.array([0.0, -1.35, -0.07, 2.53, 1.37, -0.33, 0.46, 0.23, 0.09, 0.36, 0.09, -0.55, -0.61, -0.99, -0.31, 1.46, -0.47, 0.20, 0.02, 0.40, 0.25, -0.01, 0.27, -0.11, 0.06, 0.12, -0.18, 0.13, -0.02, 149.62])
     else:
-        # A sample fraud row from the dataset
-        input_data = np.array([472.0, -3.043541, -3.157307, 1.088463, 2.288644, 1.359805, -1.064823, 0.325574, 
-                               -0.067794, -0.270953, -0.838587, -0.414575, -0.503141, 0.676502, -1.692029, 
-                               2.000635, 0.666780, 0.599717, 1.725321, 0.283345, 2.102339, 0.661696, 
-                               0.435477, 1.375966, -0.293803, 0.279798, -0.145362, -0.252773, 0.035764, 529.00])
-
-    input_df = pd.DataFrame([input_data], columns=feature_cols)
-    st.write("Input Data Preview:")
+        # Data sample for a fraud transaction
+        data = np.array([472.0, -3.04, -3.15, 1.08, 2.28, 1.35, -1.06, 0.32, -0.06, -0.27, -0.83, -0.41, -0.50, 0.67, -1.69, 2.00, 0.66, 0.59, 1.72, 0.28, 2.10, 0.66, 0.43, 1.37, -0.29, 0.27, -0.14, -0.25, 0.03, 529.00])
+    
+    input_df = pd.DataFrame([data], columns=feature_cols)
+    st.write("Selected Transaction Data:")
     st.dataframe(input_df)
 
-# --- METHOD 2: UPLOAD CSV ---
-elif input_method == "Upload CSV File":
-    st.subheader("Batch Prediction")
-    uploaded_file = st.file_uploader("Upload a CSV file (must contain columns Time, V1...V28, Amount)", type="csv")
-    
-    if uploaded_file is not None:
+elif input_method == "Batch Upload (CSV)":
+    st.subheader("Batch File Processing")
+    uploaded_file = st.file_uploader("Upload transaction CSV (must have 30 columns: Time, V1-V28, Amount)", type="csv")
+    if uploaded_file:
         input_df = pd.read_csv(uploaded_file)
-        # Ensure only necessary columns are selected
-        try:
-            input_df = input_df[feature_cols]
-            st.write("Uploaded Data:")
-            st.dataframe(input_df.head())
-            input_data = input_df.values
-        except KeyError:
-            st.error("The uploaded CSV is missing one or more required columns.")
-            input_data = None
+        # Ensure we only use the necessary columns in correct order
+        input_df = input_df[feature_cols]
+        st.success(f"Successfully loaded {len(input_df)} transactions.")
+        st.dataframe(input_df.head())
 
-# --- METHOD 3: MANUAL ENTRY ---
-elif input_method == "Manual Entry (Advanced)":
-    st.subheader("Manual Feature Entry")
-    # A text area to paste comma-separated values
-    input_str = st.text_area("Paste comma-separated values (Time, V1...V28, Amount)", height=100)
-    
-    if input_str:
+elif input_method == "Manual Entry":
+    st.subheader("Manual Transaction Entry")
+    st.info("Paste 30 comma-separated values below (Time, V1...V28, Amount).")
+    raw_input = st.text_area("Input Values:", placeholder="0.0, -1.35, ...")
+    if raw_input:
         try:
-            input_list = [float(x.strip()) for x in input_str.split(',')]
-            if len(input_list) == 30:
-                input_data = np.array(input_list)
-                input_df = pd.DataFrame([input_data], columns=feature_cols)
-                st.write("Parsed Data:")
+            val_list = [float(x.strip()) for x in raw_input.split(',')]
+            if len(val_list) == 30:
+                input_df = pd.DataFrame([val_list], columns=feature_cols)
                 st.dataframe(input_df)
             else:
-                st.error(f"Expected 30 values, got {len(input_list)}.")
+                st.error(f"Error: Expected 30 values, but received {len(val_list)}.")
         except ValueError:
-            st.error("Invalid format. Please ensure all values are numbers separated by commas.")
+            st.error("Error: Please enter only numeric values separated by commas.")
 
-# --- PREDICTION LOGIC ---
-if st.button("Analyze Transaction"):
-    if input_data is not None:
-        # If input is a single row (1D array)
-        if input_data.ndim == 1:
-            prediction = model.predict(input_data.reshape(1, -1))
-            
-            st.markdown("---")
-            if prediction[0] == 0:
-                st.markdown('<p class="legit">✅ Legitimate Transaction</p>', unsafe_allow_html=True)
-                st.success("This transaction appears safe.")
-            else:
-                st.markdown('<p class="fraud">⚠️ Fraudulent Transaction Detected</p>', unsafe_allow_html=True)
-                st.error("This transaction shows patterns associated with fraud.")
+# --- PREDICTION AND RESULTS ---
+st.write("---")
+if st.button("RUN FRAUD ANALYSIS"):
+    if input_df is not None and model is not None:
+        # Get predictions
+        predictions = model.predict(input_df.values)
+        input_df['Status'] = ["Fraud" if x == 1 else "Legit" for x in predictions]
         
-        # If input is batch (DataFrame/2D array)
+        # 1. Show Metrics
+        total = len(predictions)
+        frauds = int(np.sum(predictions))
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Scanned", total)
+        col2.metric("Fraud Detected", frauds, delta=frauds, delta_color="inverse")
+        col3.metric("System Status", "Active", delta_color="normal")
+        
+        st.write("---")
+        
+        # 2. Results Handling
+        if total == 1:
+            # Single Transaction UI
+            if predictions[0] == 0:
+                st.markdown('<p class="legit-text">✅ Result: Transaction is LEGITIMATE</p>', unsafe_allow_html=True)
+                st.balloons()
+            else:
+                st.markdown('<p class="fraud-text">⚠️ Warning: Transaction is FRAUDULENT</p>', unsafe_allow_html=True)
         else:
-            predictions = model.predict(input_data)
-            input_df['Prediction'] = ["Fraud" if x == 1 else "Legit" for x in predictions]
-            st.markdown("---")
-            st.write("Batch Prediction Results:")
-            st.dataframe(input_df.style.applymap(lambda v: 'color: red' if v == 'Fraud' else 'color: green', subset=['Prediction']))
+            # Batch Results UI (The Option 1 Fix)
+            st.subheader("Detailed Analysis Report")
             
-            fraud_count = np.sum(predictions)
-            st.warning(f"Detected {fraud_count} fraudulent transactions out of {len(predictions)}.")
+            if frauds > 0:
+                st.error(f"Action Required: {frauds} suspicious transactions flagged.")
+                # Filter and style ONLY the fraud rows
+                fraud_data = input_df[input_df['Status'] == "Fraud"]
+                st.write("🚩 Flagged Transactions (Fraud Only):")
+                # We style only the small fraud subset to avoid the rendering error
+                st.dataframe(fraud_data.style.applymap(lambda v: 'color: red; font-weight: bold', subset=['Status']))
+            else:
+                st.success("Analysis complete. No fraudulent patterns detected in this batch.")
+
+            # Show all data WITHOUT styling to ensure performance and avoid cell limits
+            with st.expander("View Full Transaction Log (Unstyled)"):
+                st.write("Complete dataset with predictions:")
+                st.dataframe(input_df)
+                
+            # Allow user to download results
+            csv = input_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download Full Report as CSV", csv, "fraud_report.csv", "text/csv")
+            
     else:
-        st.warning("Please provide input data first.")
+        st.warning("Please provide transaction data to perform analysis.")
+
+# --- FOOTER ---
+st.write("---")
+st.caption("FraudGuard AI v1.0 | Machine Learning Portfolio Project")
